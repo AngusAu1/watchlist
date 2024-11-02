@@ -8,6 +8,12 @@ from markupsafe import escape
 from flask import Flask, render_template
 from flask_sqlalchemy import SQLAlchemy
 from flask import request, url_for, redirect, flash
+from werkzeug.security import generate_password_hash, check_password_hash
+from flask_login import LoginManager
+from flask_login import UserMixin
+from flask_login import login_user
+from flask_login import login_required, logout_user
+from flask_login import login_required, current_user
 
 WIN = sys.platform.startswith('win')
 if WIN:                                                                                     # if it is windows, using ///
@@ -22,17 +28,61 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False                            
 
 db = SQLAlchemy(app)
 
-class User(db.Model):                                                                       # Table name: user
-    id = db.Column(db.Integer, primary_key=True)                                            # Primary Key
-    name = db.Column(db.String(20))                                                         # user name
+# class User(db.Model):                                                                       # Table name: user
+#     id = db.Column(db.Integer, primary_key=True)                                            # Primary Key
+#     name = db.Column(db.String(20))                                                         # user name
+class User(db.Model, UserMixin):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(20))
+    username = db.Column(db.String(20))                                                     # username
+    password_hash = db.Column(db.String(128))                                               # password hash
 
+    def set_password(self, password):                                                       # set_password method, password is a parameter here
+        self.password_hash = generate_password_hash(password)                               # 
+
+    def validate_password(self, password):                                                  # validate password method, password is a parameter here
+        return check_password_hash(self.password_hash, password)                            # return a bool
 
 class Movie(db.Model):                                                                      # table name: movie
     id = db.Column(db.Integer, primary_key=True)                                            # Primary Key
     title = db.Column(db.String(60))                                                        # Movie title
     year = db.Column(db.String(4))                                                          # Movie year
 
-@app.cli.command()                                                                          # 注册为命令，可以传入 name 参数来自定义命令
+
+# Initialize Flask-login
+login_manager = LoginManager(app) 
+login_manager.login_view = 'login' 
+
+@login_manager.user_loader
+def load_user(user_id):
+    user = User.query.get(int(user_id))                                                     # Use ID as User model's PK to query user account
+    return user                                                                             # Return to user
+
+
+
+@app.cli.command()
+@click.option('--username', prompt=True, help='The username used to login.')
+@click.option('--password', prompt=True, hide_input=True, confirmation_prompt=True, help='The password used to login.')
+def admin(username, password):
+    """Create user."""
+    db.create_all()
+
+    user = User.query.first()
+    if user is not None:
+        click.echo('Updating user...')
+        user.username = username
+        user.set_password(password)                                                         # set password
+    else:
+        click.echo('Creating user...')
+        user = User(username=username, name='Admin')
+        user.set_password(password)                                                         # set password
+        db.session.add(user)
+
+    db.session.commit()                                                                     # commit
+    click.echo('Done.')
+
+
+@app.cli.command()                                                                          # declare as a command, pass the name parameter to self-define command
 @click.option('--drop', is_flag=True, help='Create after drop.')                            # setup the option
 def initdb(drop):
     """Initialize the database."""
@@ -41,12 +91,12 @@ def initdb(drop):
     db.create_all()
     click.echo('Initialized database.')                                                     # echo the message
 
+
 @app.cli.command()
 def forge():
     """Generate fake data."""
     db.create_all()
 
-    # 全局的两个变量移动到这个函数内
     name = 'Angus Au'
     movies = [
         {'title': 'My Neighbor Totoro', 'year': '1988'},
@@ -110,6 +160,8 @@ def internal_server_error(e):
 
 def index():
     if request.method == 'POST':                             # Check if it is POST request method
+        if not current_user.is_authenticated:                # If the current user is not authenticated yet,...
+            return redirect(url_for('index'))                # then redirect to main page
         # get the table data
         title = request.form.get('title')                    
         year = request.form.get('year')
@@ -126,8 +178,58 @@ def index():
     movies = Movie.query.all()
     return render_template('index.html', movies=movies)     # pass the data to the index.html
 
+# login page
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    if request.method == 'POST':
+        username = request.form['username']
+        password = request.form['password']
+
+        if not username or not password:
+            flash('Invalid input.')
+            return redirect(url_for('login'))
+
+        user = User.query.first()
+        # Verify user name and password
+        if username == user.username and user.validate_password(password):
+            login_user(user)                                # Login
+            flash('Login success.')
+            return redirect(url_for('index'))               # redirect to root main page 
+
+        flash('Invalid username or password.')              # Display error message if verify failed
+        return redirect(url_for('login'))                   # redirect to login page
+
+    return render_template('login.html')
+
+# Logout
+@app.route('/logout')
+@login_required
+def logout():
+    logout_user()                                           # Logout user
+    flash('Goodbye.')
+    return redirect(url_for('index'))                       # redirect to root main page
+
+# Setting for user account
+@app.route('/settings', methods=['GET', 'POST'])
+@login_required
+def settings():
+    if request.method == 'POST':
+        name = request.form['name']
+
+        if not name or len(name) > 20:
+            flash('Invalid input.')
+            return redirect(url_for('settings'))
+
+        current_user.name = name
+        db.session.commit()
+        flash('Settings updated.')
+        return redirect(url_for('index'))
+
+    return render_template('settings.html')
+
 # Edit Movie page
 @app.route('/movie/edit/<int:movie_id>', methods=['GET', 'POST'])
+@login_required
 def edit(movie_id):
     movie = Movie.query.get_or_404(movie_id)
 
@@ -149,6 +251,7 @@ def edit(movie_id):
 
 # Delete Movie record
 @app.route('/movie/delete/<int:movie_id>', methods=['POST'])        # Only allow POST request method
+@login_required
 def delete(movie_id):
     movie = Movie.query.get_or_404(movie_id)                        # get the Movie record
     db.session.delete(movie)                                        # delete the movie record
