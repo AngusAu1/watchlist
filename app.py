@@ -83,15 +83,25 @@ def forge():
 #     {'title': 'The Pork of Music', 'year': '2012'},
 # ]
 
+@app.context_processor
+def inject_user():  
+    user = User.query.first()
+    return dict(user=user)                                  # return to dict, it's equal to: return {'user':user}
+
+
+@app.errorhandler(404)                                      # pass the error code that need to be handle
+def page_not_found(e):                                      # accept the exception as a parameter
+    return render_template('404.html', user=user), 404      # returned to template
+
+
 # root
 @app.route('/')
 #def hello():
 #    return '<h1>Hello!! Welcome to my Watchlist!</h1><img s<img src="https://media.tenor.com/s3I_IAym7_EAAAAj/rick-and-morty.gif">'
 
 def index():
-    user = User.query.first()
     movies = Movie.query.all()
-    return render_template('index.html', user=user, movies=movies)
+    return render_template('index.html', movies=movies)
 
 # /user/<name> page
 # using escape from markupsafe
