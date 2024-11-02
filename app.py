@@ -4,10 +4,10 @@ import click
 
 from flask import Flask
 from markupsafe import escape
-from flask import url_for
+#from flask import url_for
 from flask import Flask, render_template
 from flask_sqlalchemy import SQLAlchemy
-
+from flask import request, url_for, redirect, flash
 
 WIN = sys.platform.startswith('win')
 if WIN:                                                                                     # if it is windows, using ///
@@ -95,13 +95,57 @@ def page_not_found(e):                                      # accept the excepti
 
 
 # root
-@app.route('/')
+@app.route('/', methods=['GET', 'POST'])
 #def hello():
 #    return '<h1>Hello!! Welcome to my Watchlist!</h1><img s<img src="https://media.tenor.com/s3I_IAym7_EAAAAj/rick-and-morty.gif">'
 
 def index():
+    if request.method == 'POST':                             # Check if it is POST request method
+        # get the table data
+        title = request.form.get('title')                    
+        year = request.form.get('year')
+        # verify data
+        if not title or not year or len(year) > 4 or len(title) > 60:
+            flash('Invalid input.')                         # return error message 'Invalid input'
+            return redirect(url_for('index'))               # Redirect to the root main page
+        # store the date that submitted
+        movie = Movie(title=title, year=year)               
+        db.session.add(movie)                               # add the data into table: movie
+        db.session.commit()                                 # commit
+        flash('Item created.')                              # dispaly 'Item created'
+        return redirect(url_for('index'))                   # Redirect to the root main page
     movies = Movie.query.all()
-    return render_template('index.html', movies=movies)
+    return render_template('index.html', movies=movies)     # pass the data to the index.html
+
+# Edit Movie page
+@app.route('/movie/edit/<int:movie_id>', methods=['GET', 'POST'])
+def edit(movie_id):
+    movie = Movie.query.get_or_404(movie_id)
+
+    if request.method == 'POST':                                    # Check if it is POST request method
+        title = request.form['title']
+        year = request.form['year']
+
+        if not title or not year or len(year) != 4 or len(title) > 60:
+            flash('Invalid input.')
+            return redirect(url_for('edit', movie_id=movie_id))     # Redirect to the Edit Movie page
+
+        movie.title = title                                         # Update title
+        movie.year = year                                           # Update year
+        db.session.commit()                                         # commit
+        flash('Item updated.')
+        return redirect(url_for('index'))                           # Redirect to main page
+
+    return render_template('edit.html', movie=movie)                # pass the data to the edit.html
+
+# Delete Movie record
+@app.route('/movie/delete/<int:movie_id>', methods=['POST'])        # Only allow POST request method
+def delete(movie_id):
+    movie = Movie.query.get_or_404(movie_id)                        # get the Movie record
+    db.session.delete(movie)                                        # delete the movie record
+    db.session.commit()                                             # commit
+    flash('Item deleted.')
+    return redirect(url_for('index'))                               # redirect to main page
 
 # /user/<name> page
 # using escape from markupsafe
