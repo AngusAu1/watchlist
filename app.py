@@ -16,6 +16,7 @@ else:                                                                           
     prefix = 'sqlite:////'
 
 app = Flask(__name__)
+app.config['SECRET_KEY'] = 'dev'
 app.config['SQLALCHEMY_DATABASE_URI'] = prefix + os.path.join(app.root_path, 'data.db')     # sqlite:/// absolute address for the database
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False                                        # disable the tracing of modifications 
 
@@ -89,9 +90,17 @@ def inject_user():
     return dict(user=user)                                  # return to dict, it's equal to: return {'user':user}
 
 
+@app.errorhandler(400)
+def bad_request(e):
+    return render_template('400.html'), 400
+
 @app.errorhandler(404)                                      # pass the error code that need to be handle
 def page_not_found(e):                                      # accept the exception as a parameter
     return render_template('404.html', user=user), 404      # returned to template
+
+@app.errorhandler(500)
+def internal_server_error(e):
+    return render_template('500.html'), 500
 
 
 # root
