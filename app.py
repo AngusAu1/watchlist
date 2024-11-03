@@ -47,6 +47,8 @@ class Movie(db.Model):                                                          
     id = db.Column(db.Integer, primary_key=True)                                            # Primary Key
     title = db.Column(db.String(60))                                                        # Movie title
     year = db.Column(db.String(4))                                                          # Movie year
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'))                               # New add user id
+    
 
 
 # Initialize Flask-login
@@ -136,9 +138,11 @@ def forge():
 
 @app.context_processor
 def inject_user():  
-    user = User.query.first()
-    return dict(user=user)                                  # return to dict, it's equal to: return {'user':user}
-
+    #user = User.query.first()
+    #return dict(user=user)                                  # return to dict, it's equal to: return {'user':user}
+    if current_user.is_authenticated:
+        return dict(user=current_user)  # return to the current user
+    return dict(user=None)  # else, which mean have not login yet, and return None
 
 @app.errorhandler(400)
 def bad_request(e):
@@ -170,12 +174,19 @@ def index():
             flash('Invalid input.')                         # return error message 'Invalid input'
             return redirect(url_for('index'))               # Redirect to the root main page
         # store the date that submitted
-        movie = Movie(title=title, year=year)               
+        #movie = Movie(title=title, year=year)   
+        movie = Movie(title=title, year=year, user_id=current_user.id)            
         db.session.add(movie)                               # add the data into table: movie
         db.session.commit()                                 # commit
         flash('Item created.')                              # dispaly 'Item created'
         return redirect(url_for('index'))                   # Redirect to the root main page
-    movies = Movie.query.all()
+    #movies = Movie.query.all()
+
+    if current_user.is_authenticated:
+        movies = Movie.query.filter_by(user_id=current_user.id).all()
+    else:
+        movies =[]
+        
     return render_template('index.html', movies=movies)     # pass the data to the index.html
 
 # login page
@@ -189,9 +200,11 @@ def login():
             flash('Invalid input.')
             return redirect(url_for('login'))
 
-        user = User.query.first()
+        #user = User.query.first()
+        user = User.query.filter_by(username=username).first()
         # Verify user name and password
-        if username == user.username and user.validate_password(password):
+        #if username == user.username and user.validate_password(password):
+        if user and user.validate_password(password):
             login_user(user)                                # Login
             flash('Login success.')
             return redirect(url_for('index'))               # redirect to root main page 
@@ -226,6 +239,37 @@ def settings():
         return redirect(url_for('index'))
 
     return render_template('settings.html')
+
+# Create_user
+@app.route('/create_user', methods=['GET', 'POST'])
+def create_user():
+    if request.method == 'POST':
+        username = request.form['username']
+        name = request.form['name']
+        password = request.form['password']
+
+        # Validate the input
+        if not username or not name or not password:
+            flash('Incorrect input, please complete all fields')
+            return redirect(url_for('create_user'))
+
+        # check user account existing or not
+        existing_user = User.query.filter_by(username=username).first()
+        if existing_user:
+            flash('The user name already existed. Please select another user name.')
+            return redirect(url_for('create_user'))
+
+        # create new user
+        new_user = User(username=username, name=name)
+        new_user.set_password(password)
+        db.session.add(new_user)
+        db.session.commit()
+        
+        flash('Create user account successfully!')
+        return redirect(url_for('login'))
+
+    return render_template('create_user.html')
+
 
 # Edit Movie page
 @app.route('/movie/edit/<int:movie_id>', methods=['GET', 'POST'])
