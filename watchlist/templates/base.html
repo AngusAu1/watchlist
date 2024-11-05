@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    {% block head %}
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>
+        {% if user %}
+            {{ user.name }}'s Watchlist
+        {% else %}
+            Your Watchlist
+        {% endif %}
+    </title>    
+    <link rel="icon" href="{{ url_for('static', filename='favicon.ico') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" type="text/css">
+    {% endblock %}
+</head>
+<body>
+    {% for message in get_flashed_messages() %}
+        <div class="alert">{{ message }}</div>
+    {% endfor %}
+    <h2>
+        <img alt="movies-life-is-better-sticker" class="movies-life-is-better-sticker" src="{{ url_for('static', filename='images/movies-life-is-better-sticker.jpg') }}">
+        {% if user %}
+            {{ user.name }}'s Watchlist
+        {% else %}
+            Your Watchlist
+        {% endif %}
+    </h2>
+    <nav>
+        <ul>
+            <li><a href="{{ url_for('index') }}">Home</a></li>
+            {% if current_user.is_authenticated %}
+                <li><a href="{{ url_for('settings') }}">Settings</a></li>
+                <li><a href="{{ url_for('logout') }}">Logout</a></li>
+            {% else %}
+                <li><a href="{{ url_for('login') }}">Login</a></li>
+                <li><a href="{{ url_for('create_user') }}">Register</a></li> 
+            {% endif %}
+        </ul>
+    </nav>
+    {% block content %}{% endblock %}
+    <footer>
+        <small>&copy; 2024 <a href="https://github.com/AngusAu1/watchlist/tree/master">GitHub - Angus Au</a></small>
+    </footer>
+</body>
+</html>
