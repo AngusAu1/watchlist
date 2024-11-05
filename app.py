@@ -33,6 +33,7 @@ print("Database URI:", app.config['SQLALCHEMY_DATABASE_URI'])
 
 db = SQLAlchemy(app)
 
+
 # class User(db.Model):                                                                       # Table name: user
 #     id = db.Column(db.Integer, primary_key=True)                                            # Primary Key
 #     name = db.Column(db.String(20))                                                         # user name
@@ -64,7 +65,6 @@ login_manager.login_view = 'login'
 def load_user(user_id):
     user = User.query.get(int(user_id))                                                     # Use ID as User model's PK to query user account
     return user                                                                             # Return to user
-
 
 
 @app.cli.command()
@@ -127,6 +127,7 @@ def forge():
     db.session.commit()
     click.echo('Done.')
 
+
 # name = 'Angus Au'
 # movies = [
 #     {'title': 'My Neighbor Totoro', 'year': '1988'},
@@ -149,18 +150,23 @@ def inject_user():
         return dict(user=current_user)  # return to the current user
     return dict(user=None)  # else, which mean have not login yet, and return None
 
+
+# move to errors.py
+
 @app.errorhandler(400)
 def bad_request(e):
-    return render_template('400.html'), 400
+    return render_template('errors/400.html'), 400
 
 @app.errorhandler(404)                                      # pass the error code that need to be handle
 def page_not_found(e):                                      # accept the exception as a parameter
-    return render_template('404.html', user=user), 404      # returned to template
+    return render_template('errors/404.html', user=user), 404      # returned to template
 
 @app.errorhandler(500)
 def internal_server_error(e):
-    return render_template('500.html'), 500
+    return render_template('errors/500.html'), 500
 
+
+# move to views.py
 
 # root
 @app.route('/', methods=['GET', 'POST'])
