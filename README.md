@@ -21,6 +21,7 @@ commands.py
 and move the 400.html, 404.html and 500.html into an errors folder.
 
 The finallized project structure (tree):
+'''
 ├── .flaskenv
 ├── requirements.txt
 ├── wsgi.py
@@ -47,10 +48,11 @@ The finallized project structure (tree):
         ├── index.html
         ├── login.html
         └── settings.html
-
+'''
 
 
 The original project structure (tree):
+'''
 ├── .flaskenv
 ├── app.py
 ├── test_watchlist.py
@@ -69,3 +71,4 @@ The original project structure (tree):
     ├── index.html
     ├── login.html
     └── settings.html
+'''
